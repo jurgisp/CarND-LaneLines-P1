@@ -1,56 +1,103 @@
-# **Finding Lane Lines on the Road** 
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
+# **Finding Lane Lines on the Road - Project writeup**
 
-<img src="examples/laneLines_thirdPass.jpg" width="480" alt="Combined Image" />
+## Project goals
 
-Overview
----
+The goals / steps of this project are the following:
+1. Make a pipeline that finds lane lines on the road
+1. Improve the pipeline, to find lanes as exactly two lines
+1. (Optional) Further improve the pipeline to deal with varying light conditions, as in `challenge.mp4`
 
-When we drive, we use our eyes to decide where to go.  The lines on the road that show us where the lanes are act as our constant reference for where to steer the vehicle.  Naturally, one of the first things we would like to do in developing a self-driving car is to automatically detect lane lines using an algorithm.
+## Results
 
-In this project you will detect lane lines in images using Python and OpenCV.  OpenCV means "Open-Source Computer Vision", which is a package that has many useful tools for analyzing images.  
+The code for this project is in the notebook [P1.ipynb](P1.ipynb)
 
-To complete the project, two files will be submitted: a file containing project code and a file containing a brief write up explaining your solution. We have included template files to be used both for the [code](https://github.com/udacity/CarND-LaneLines-P1/blob/master/P1.ipynb) and the [writeup](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md).The code file is called P1.ipynb and the writeup template is writeup_template.md 
+1. The first version of the pipeline was implemented with the same steps as shown in class. Here are the results for [images](./test_images_output_first) and [videos](./test_videos_output_first). It detects line segments belonging to the lanes, but not the lanes themselves.
 
-To meet specifications in the project, take a look at the requirements in the [project rubric](https://review.udacity.com/#!/rubrics/322/view)
+1. The second version of the pipeline was improved to find the exactly two lines, corresponding to the position and slope of the lanes. Here are the results for [images](./test_images_output_second) and [videos](./test_videos_output_second).
 
+![solidYellowCurve](./test_images_output_second/solidYellowCurve.jpg)
 
-Creating a Great Writeup
----
-For this project, a great writeup should provide a detailed response to the "Reflection" section of the [project rubric](https://review.udacity.com/#!/rubrics/322/view). There are three parts to the reflection:
+## Reflection
 
-1. Describe the pipeline
+### Pipeline v1
 
-2. Identify any shortcomings
+The initial version of the pipeline followed the one presented in class. It's implemented in the notebook as `process_image()`. The steps are:
 
-3. Suggest possible improvements
+1. Resize image to (960, 540). This is to handle `challenge.mp4`
+1. Convert to grayscale
+1. Apply Gaussian blur (5)
+1. Apply Canny filter (50, 150)
+1. Cut region of interest ((0, 540), (350, 350), (610, 350), (960, 540))
+1. Extract Hough lines (2, PI/180, 15, 40, 20)
+1. Draw the lines using `draw_lines` helper function
 
-We encourage using images in your writeup to demonstrate how your pipeline works.  
+It results in a pretty good detection of line segments belonging to the lanes. Here are the results for [images](./test_images_output_first) and [videos](./test_videos_output_first).
 
-All that said, please be concise!  We're not looking for you to write a book here: just a brief description.
+Here is a YouTube upload that can be viewed directly - the only way I could find to embed video in markdown on Github:
+[![solidWhiteRight-video-first](https://img.youtube.com/vi/44cDYs7sxKo/0.jpg)](https://www.youtube.com/watch?v=44cDYs7sxKo)
 
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup. Here is a link to a [writeup template file](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md). 
+### Pipeline v2
 
+#### Thought process
 
-The Project
----
+Even though the task says to improve `draw_lines()` function, my approach is slightly different. In my opinion, the problem with v1 is not the drawing, but that the pipeline doesn't _actually_ find the lanes. It only finds line segments that most likely belong to the lanes.
 
-## If you have already installed the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) you should be good to go!   If not, you should install the starter kit to get started on this project. ##
+Thinking about Hough transform, I realized that the raw `(rho, theta)` representation would be most useful for the task, because it responds to _whole lines_ and not _line segments_ - which is what we want. If we had the raw Hough-transformed representation, we could potentially run a clustering algorithm to find two clusters with most intensity - which should correspond to our lanes.
 
-**Step 1:** Set up the [CarND Term1 Starter Kit](https://classroom.udacity.com/nanodegrees/nd013/parts/fbf77062-5703-404e-b60c-95b78b2f3f9e/modules/83ec35ee-1e02-48a5-bdb7-d244bd47c2dc/lessons/8c82408b-a217-4d09-b81d-1bda4c6380ef/concepts/4f1870e0-3849-43e4-b670-12e6f2d4b7a7) if you haven't already.
+In fact `cv2.HoughLines` function (not `cv2.HoughLinesP`) is roughly what we want. It doesn't quite return raw intensity in `(rho, theta)` space, but it does return a list of points in Hough space that exceed threshold.
 
-**Step 2:** Open the code in a Jupyter Notebook
+Here is an example input after Canny transform:
 
-You will complete the project code in a Jupyter notebook.  If you are unfamiliar with Jupyter Notebooks, check out <A HREF="https://www.packtpub.com/books/content/basics-jupyter-notebook-and-python" target="_blank">Cyrille Rossant's Basics of Jupyter Notebook and Python</A> to get started.
+![2-canny](./writeup/2-canny.PNG)
 
-Jupyter is an Ipython notebook where you can run blocks of code and see results interactively.  All the code for this project is contained in a Jupyter notebook. To start Jupyter in your browser, use terminal to navigate to your project directory and then run the following command at the terminal prompt (be sure you've activated your Python 3 carnd-term1 environment as described in the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) installation instructions!):
+If we run it through `cv2.HoughLines(img, 1, np.pi/180, 30)`, we get:
 
-`> jupyter notebook`
+![4-hough-space](./writeup/4-hough-space.PNG)
 
-A browser window will appear showing the contents of the current directory.  Click on the file called "P1.ipynb".  Another browser window will appear displaying the notebook.  Follow the instructions in the notebook to complete the project.  
+We can clearly see clusters, corresponding to straight lines accross the image. Converting back to the image space, for interest:
 
-**Step 3:** Complete the project and submit both the Ipython notebook and the project writeup
+![3-hough-lines](./writeup/3-hough-lines.PNG)
 
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+Additionally, we would like to filter around the regions, where we expect the lanes to be. `\rho` is not a particularly good parameter for that. We can transform `(rho, theta)` to `(x, theta)` where `x` is the coordinate where the line intersects the bottom of the image. We defined this in `transform_hough()` helper function. Here is what we get:
 
+![5-hough-transformed](./writeup/5-hough-transformed.PNG)
+
+In this space we have a very intuitive interpretation of the points: `x` is the position of the lane on the bottom of the image, and `theta` is the angle.
+
+Now we can very easily filter the points around these regions using rectangle bounds, and take their mean.
+
+#### Resulting pipeline
+
+This logic is implemented as `process_image2()`. The beggining is the same as before:
+
+1. Resize image to (960, 540)
+1. Convert to grayscale
+1. Apply Gaussian blur (5)
+1. Apply Canny filter (50, 150)
+1. Cut region of interest ((0, 540), (350, 350), (610, 350), (960, 540))
+
+And now we have the new logic:
+
+6. Extract Hough lines with `cv2.HoughLines(img, 1, np.pi/180, 30)`, which gives us array of `(rho, theta)` points.
+7. Transform to `(x, theta)` space
+8. Identify left lane as the average of points in `(x=[0, 480], theta=[30°, 80°])` rectangle
+9. Identify right lane as the average of points in `(x=[480, 960], theta=[50°, 150°])` rectangle
+10. Draw the two lines using `draw_lines_xtheta` helper function.
+
+This works nicely on the test images and videos (except the challenge video). Here are the results for [images](./test_images_output_second) and [videos](./test_videos_output_second).
+
+[![solidWhiteRight-video-first](https://img.youtube.com/vi/FN8afhmpcZQ/0.jpg)](https://www.youtube.com/watch?v=FN8afhmpcZQ)
+
+### Potential shortcomings
+
+One shortcoming is sensitivity to lighting conditions, as seen clearly in the challenge video. We need a more robust way to detect the edges.
+
+Another potential problem is that the detected line is not fully stable and "jiggles" a bit in the video. It seems to be affected by various extra features on the road - for example, small paint markings near the left yellow lane. 
+
+In general, we would a lot more checks, to make the algorithm more robust - would definetly not trust my autopilot with the current implementation :)
+
+### Possible improvements
+
+I'm not fully happy with `HoughLines` implementation in OpenCV, because I have to specify fixed threshold (30), and it returns all points without the weights. From that output it is impossible to distinguish a "strong" line signal (e.g. >100 points) with "weak" line signal, which might be false-positives. What I would like to get is all `(rho, theta)` points with raw weights, without specifying threshold, and then use that output to detect the most likely clusters.
+
+One way to make the algorithm more robust when processing video would be to make it "remember" results from previous frames. For example, we could calculate a moving average over time with ~1sec time decay, because we don't expect the lanes to change rapidly, or the car to react to that.
