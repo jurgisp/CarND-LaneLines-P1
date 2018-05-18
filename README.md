@@ -92,12 +92,12 @@ This works nicely on the test images and videos (except the challenge video). He
 
 One shortcoming is sensitivity to lighting conditions, as seen clearly in the challenge video. We need a more robust way to detect the edges.
 
-Another potential problem is that the detected line is not fully stable and "jiggles" a bit in the video. It seems to be affected by various extra features on the road - for example, small paint markings near the left yellow lane. 
+Another potential problem is that the detected line is not fully stable and jiggles a bit in the video. It seems to be affected by various extra features on the road - for example, small paint markings near the left yellow lane. 
 
-In general, we would a lot more checks, to make the algorithm more robust - would definetly not trust my autopilot with the current implementation :)
+In general, we should add a lot more safety checks, to make the algorithm more robust - would definetly not trust my autopilot with the current implementation :)
 
 ### Possible improvements
 
-I'm not fully happy with `HoughLines` implementation in OpenCV, because I have to specify fixed threshold (30), and it returns all points without the weights. From that output it is impossible to distinguish a "strong" line signal (e.g. >100 points) with "weak" line signal, which might be false-positives. What I would like to get is all `(rho, theta)` points with raw weights, without specifying threshold, and then use that output to detect the most likely clusters.
+I'm not fully happy with `HoughLines` implementation in OpenCV, because I have to specify a fixed threshold (30), and it returns all points without the weights. From that output it is impossible to distinguish strong line signal (e.g. >100 points) from the weak one (only 30 points), which are more likely to be false-positives. What I would like to get is all `(rho, theta)` points with raw weights, without specifying threshold, and then use that output to detect the most likely clusters.
 
 One way to make the algorithm more robust when processing video would be to make it "remember" results from previous frames. For example, we could calculate a moving average over time with ~1sec time decay, because we don't expect the lanes to change rapidly, or the car to react to that.
